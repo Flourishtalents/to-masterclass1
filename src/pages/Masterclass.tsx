@@ -1,555 +1,456 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Play, Clock, Users, Award, Star, BookOpen, Filter, Search, CheckCircle, Lock } from 'lucide-react';
+import {
+  Award, BookOpen, Bookmark, ChevronDown, Clock, Eye, Filter, Grid, List,
+  MessageCircle, Play, Search, Star, Target, TrendingUp, Trophy, Users, Video
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { mockCourses, mockWorkshops, mockAchievements, categories } from '../data/mock-data';
+import { Course } from '../types';
+
+// Utility to format category names for display
+const formatCategoryName = (category: string) => {
+  return category
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+// A new Course Card component to be used in the grid
+const CourseCard: React.FC<{ course: Course, viewMode: 'grid' | 'list' }> = ({ course, viewMode }) => {
+  const [isBookmarked, setIsBookmarked] = useState(course.isBookmarked);
+
+  const toggleBookmark = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsBookmarked(!isBookmarked);
+  };
+
+  const cardClasses = "glass-effect rounded-2xl overflow-hidden hover-lift group transition-all duration-300 flex";
+  const viewModeClasses = viewMode === 'grid' ? 'flex-col' : 'flex-col md:flex-row';
+
+  return (
+    <div className={`${cardClasses} ${viewModeClasses}`}>
+      {/* Thumbnail Section */}
+      <div className={`relative bg-gray-800 ${viewMode === 'grid' ? 'aspect-video' : 'md:w-1/3 aspect-video'}`}>
+        <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
+          <button className="p-3 bg-white/20 rounded-full hover:bg-white/30 transition-colors" title="Preview">
+            <Eye className="w-6 h-6 text-white" />
+          </button>
+          <Link to={`/learn/${course.id}`} className="p-4 bg-rose-500 rounded-full hover:bg-rose-600 transition-colors" title="Start Learning">
+            <Play className="w-6 h-6 text-white fill-white" />
+          </Link>
+        </div>
+        <div className="absolute top-3 left-3 flex flex-col space-y-2">
+          {course.isBestseller && <span className="px-2 py-1 bg-yellow-500 text-black text-xs font-bold rounded">BESTSELLER</span>}
+          {course.isNew && <span className="px-2 py-1 bg-green-500 text-white text-xs font-bold rounded">NEW</span>}
+          {course.isEnrolled && <span className="px-2 py-1 bg-blue-500 text-white text-xs font-bold rounded">ENROLLED</span>}
+        </div>
+        <button onClick={toggleBookmark} className="absolute top-3 right-3 p-2 bg-black/50 rounded-full hover:bg-black/70 transition-colors" title="Bookmark">
+          <Bookmark className={`w-5 h-5 text-white transition-colors ${isBookmarked ? 'fill-white' : ''}`} />
+        </button>
+      </div>
+
+      {/* Content Section */}
+      <div className="p-6 flex flex-col flex-1">
+        <div className="flex items-center justify-between mb-3">
+          <span className="px-3 py-1 bg-rose-400/20 text-rose-300 text-xs rounded-full">{course.level}</span>
+          <div className="flex items-center space-x-1">
+            <Star className="w-4 h-4 text-yellow-400 fill-current" />
+            <span className="text-white text-sm font-medium">{course.rating}</span>
+            <span className="text-gray-400 text-sm">({course.reviewCount})</span>
+          </div>
+        </div>
+
+        <h3 className="text-xl font-semibold text-white mb-2 group-hover:text-rose-400 transition-colors flex-grow">
+          <Link to={`/course/${course.id}`}>{course.title}</Link>
+        </h3>
+
+        <div className="flex items-center space-x-2 mb-3">
+          <img src={course.instructorImage} alt={course.instructor} className="w-6 h-6 rounded-full" />
+          <span className="text-gray-300 text-sm">by {course.instructor}</span>
+        </div>
+
+        {viewMode === 'list' && (
+          <p className="text-gray-400 text-sm mb-4 line-clamp-2 flex-grow">{course.description}</p>
+        )}
+
+        <div className="flex items-center justify-between text-sm text-gray-300 mb-4">
+          <span className="flex items-center space-x-1"><Clock className="w-4 h-4" /><span>{course.duration}</span></span>
+          <span className="flex items-center space-x-1"><BookOpen className="w-4 h-4" /><span>{course.lessons} lessons</span></span>
+          <span className="flex items-center space-x-1"><Users className="w-4 h-4" /><span>{course.students}</span></span>
+        </div>
+
+        <div className="flex flex-wrap gap-1 mb-4">
+          {course.features.slice(0, 3).map(f => <span key={f} className="px-2 py-1 bg-purple-400/20 text-purple-300 text-xs rounded">{f}</span>)}
+          {course.features.length > 3 && <span className="px-2 py-1 bg-gray-400/20 text-gray-300 text-xs rounded">+{course.features.length - 3} more</span>}
+        </div>
+
+        {course.isEnrolled && course.progress > 0 && (
+          <div className="mb-4">
+            <div className="flex justify-between text-sm mb-1 text-white"><p>Progress</p><p>{course.progress}%</p></div>
+            <div className="w-full bg-gray-700 rounded-full h-2"><div className="bg-green-500 h-2 rounded-full" style={{ width: `${course.progress}%` }}></div></div>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between mt-auto pt-4 border-t border-white/10">
+          <div>
+            <p className="text-2xl font-bold text-white">UGX {course.price.toLocaleString()}</p>
+            {course.originalPrice > course.price && <p className="text-sm text-gray-400 line-through">UGX {course.originalPrice.toLocaleString()}</p>}
+          </div>
+          <Link to={course.isEnrolled ? `/learn/${course.id}` : `/course/${course.id}`}>
+            <button className={`px-6 py-2 rounded-lg font-semibold transition-all ${course.isEnrolled ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-gradient-to-r from-rose-500 to-purple-600 hover:shadow-lg hover:shadow-rose-500/20 text-white'}`}>
+              {course.isEnrolled ? 'Continue' : 'Enroll Now'}
+            </button>
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 export default function Masterclass() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [activeFilter, setActiveFilter] = useState('all');
+
+  // State Management
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortOrder, setSortOrder] = useState('Most Popular');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Filters State
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(['all']);
+  const [selectedLevels, setSelectedLevels] = useState<string[]>(['all']);
+  const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);
   const [showMentorshipModal, setShowMentorshipModal] = useState(false);
   const [mentorshipRequestSent, setMentorshipRequestSent] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const categories = [
-    'all',
-    'digital-marketing',
-    'brand-ambassador-roles',
-    'media-communications',
-    'modelling',
-    'acting',
-    'literary-culture',
-    'film-&-video-production',
-    'audio-production',
-    'music',
-    'dance',
-    'event-management',
-    'marketing-&-advertising',
-    'AI-research-&-innovation',
-    'business-development',
-    'professional-development',
-    'personal-development'
-  ];
-
-  const masterclasses = [
-    {
-      id: 1,
-      title: 'Digital Marketing Mastery',
-      instructor: 'Sarah Johnson',
-      category: 'digital-marketing',
-      duration: '8 weeks',
-      lessons: 24,
-      students: 1250,
-      rating: 4.9,
-      price: 750000,
-      level: 'Beginner to Advanced',
-      thumbnail: 'https://images.pexels.com/photos/6285080/pexels-photo-6285080.jpeg?auto=compress&cs=tinysrgb&w=400',
-      description: 'Master the art of digital marketing with hands-on projects and real-world case studies.',
-      features: ['Live Sessions', 'Projects', 'Certification'],
-      isEnrolled: false,
-      progress: 0
-    },
-    {
-      id: 2,
-      title: 'Brand Ambassador Certification',
-      instructor: 'Emma Wilson',
-      category: 'brand-ambassador',
-      duration: '6 weeks',
-      lessons: 18,
-      students: 890,
-      rating: 4.8,
-      price: 560000,
-      level: 'Intermediate',
-      thumbnail: 'https://images.pexels.com/photos/9558596/pexels-photo-9558596.jpeg?auto=compress&cs=tinysrgb&w=400',
-      description: 'Learn how to become a successful brand ambassador and build lasting partnerships.',
-      features: ['Industry Connections', 'Portfolio Building', 'Certification'],
-      isEnrolled: true,
-      progress: 65
-    },
-    {
-      id: 3,
-      title: 'Media & Communications Excellence',
-      instructor: 'Dr. Maria Rodriguez',
-      category: 'media-communications',
-      duration: '10 weeks',
-      lessons: 30,
-      students: 650,
-      rating: 4.9,
-      price: 940000,
-      level: 'Advanced',
-      thumbnail: 'https://images.pexels.com/photos/14587370/pexels-photo-14587370.jpeg?auto=compress&cs=tinysrgb&w=400',
-      description: 'Comprehensive media training covering PR, communications strategy, and crisis management.',
-      features: ['Media Kit Creation', 'PR Strategy', 'Crisis Management', 'Networking'],
-      isEnrolled: false,
-      progress: 0
-    },
-    {
-      id: 5,
-      title: 'The Art of Modelling',
-      instructor: 'Alex Chen',
-      category: 'modelling',
-      duration: '8 weeks',
-      lessons: 20,
-      students: 350,
-      rating: 4.8,
-      price: 820000,
-      level: 'Beginner',
-      thumbnail: 'https://images.pexels.com/photos/6311651/pexels-photo-6311651.jpeg?auto=compress&cs=tinysrgb&w=400',
-      description: 'Master the runway, posing techniques, and the business of modeling.',
-      features: ['Posing Techniques', 'Runway Walk', 'Portfolio Development'],
-      isEnrolled: false,
-      progress: 0
-    },
-    {
-      id: 4,
-      title: 'Acting for Screen & Stage',
-      instructor: 'Jedi Martinez',
-      category: 'acting',
-      duration: '12 weeks',
-      lessons: 36,
-      students: 420,
-      rating: 4.7,
-      price: 1130000,
-      level: 'All Levels',
-      thumbnail: 'https://images.pexels.com/photos/7551410/pexels-photo-7551410.jpeg?auto=compress&cs=tinysrgb&w=400',
-      description: 'Develop your acting skills with professional techniques and industry insights.',
-      features: ['Scene Work', 'Audition Prep', 'Industry Connections', 'Demo Reel'],
-      isEnrolled: false,
-      progress: 0
-    },
-    {
-        id: 9,
-        title: 'Literary Culture',
-        instructor: 'Dr. Evelyn Reed',
-        category: 'literary-culture',
-        duration: '6 weeks',
-        lessons: 15,
-        students: 250,
-        rating: 4.7,
-        price: 680000,
-        level: 'All Levels',
-        thumbnail: 'https://images.pexels.com/photos/8390958/pexels-photo-8390958.jpeg?auto=compress&cs=tinysrgb&w=400',
-        description: 'Explore contemporary literature and its impact on modern culture.',
-        features: ['Literary Analysis', 'Cultural Studies', 'Creative Writing'],
-        isEnrolled: false,
-        progress: 0
-    },
-    {
-      id: 6,
-      title: 'Film & Video Production',
-      instructor: 'David Lee',
-      category: 'film-video-production',
-      duration: '10 weeks',
-      lessons: 25,
-      students: 550,
-      rating: 4.9,
-      price: 980000,
-      level: 'Beginner to Intermediate',
-      thumbnail: 'https://images.pexels.com/photos/7413890/pexels-photo-7413890.jpeg?auto=compress&cs=tinysrgb&w=400',
-      description: 'Learn the fundamentals of filmmaking, from pre-production to post-production.',
-      features: ['Cinematography', 'Editing', 'Sound Design', 'Directing'],
-      isEnrolled: false,
-      progress: 0
-    },
-    {
-      id: 7,
-      title: 'Audio Production',
-      instructor: 'Jasmine Carter',
-      category: 'audio-production',
-      duration: '8 weeks',
-      lessons: 20,
-      students: 400,
-      rating: 4.8,
-      price: 720000,
-      level: 'All Levels',
-      thumbnail: 'https://images.pexels.com/photos/3971985/pexels-photo-3971985.jpeg?auto=compress&cs=tinysrgb&w=400',
-      description: 'Master audio recording, editing, and mixing for music, podcasts, and video.',
-      features: ['DAW Basics', 'Mixing Techniques', 'Mastering', 'Sound Engineering'],
-      isEnrolled: false,
-      progress: 0
-    },
-    {
-      id: 8,
-      title: 'Music Theory & Composition',
-      instructor: 'Dr. Michael Chen',
-      category: 'music',
-      duration: '12 weeks',
-      lessons: 30,
-      students: 300,
-      rating: 4.9,
-      price: 1200000,
-      level: 'Intermediate to Advanced',
-      thumbnail: 'https://images.pexels.com/photos/586415/pexels-photo-586415.jpeg?auto=compress&cs=tinysrgb&w=400',
-      description: 'Deepen your understanding of music theory and learn advanced composition techniques.',
-      features: ['Harmony', 'Counterpoint', 'Orchestration', 'Songwriting'],
-      isEnrolled: false,
-      progress: 0
-    }
-  ].sort((a, b) => {
-    const aIndex = categories.indexOf(a.category);
-    const bIndex = categories.indexOf(b.category);
-    return aIndex - bIndex;
-  })
-
-  const workshops = [
-    {
-      id: 1,
-      title: 'Social Media Strategy Workshop',
-      date: 'November 15, 2025',
-      time: '2:00 PM EAT',
-      duration: '3 hours',
-      instructor: 'Alex Chen',
-      spots: 25,
-      price: 185000,
-      category: 'digital-marketing'
-    },
-    {
-      id: 2,
-      title: 'Personal Branding Intensive',
-      date: 'November 20, 2025',
-      time: '10:00 AM EAT',
-      duration: '4 hours',
-      instructor: 'Maya Patel',
-      spots: 15,
-      price: 300000,
-      category: 'professional-development'
-    }
-  ];
-
-  const filteredMasterclasses = masterclasses.filter(course => {
-    const matchesCategory = activeFilter === 'all' || course.category === activeFilter;
-    const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         course.instructor.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
-
-  const handleEnroll = (courseId: number) => {
-    if (!user) {
-      alert('Please sign up or sign in to enroll.');
-      navigate('/signin');
-      return;
-    }
-    if (user.tier === 'free') {
-      alert('Upgrade to Premium to access masterclasses!');
-      return;
-    }
-    alert('Enrollment successful! Welcome to the masterclass.');
-  };
-
-  const handleMentorshipRequest = async (e: React.FormEvent) => {
+  const handleMentorshipSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Here you would typically make an API call
-    // For now, we'll just simulate a delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    setIsSubmitting(true);
+    // Simulate API call
+    await new Promise(res => setTimeout(res, 1500));
+    setIsSubmitting(false);
     setMentorshipRequestSent(true);
   };
 
+  const openMentorshipModal = () => {
+    if (!user) {
+      navigate('/signin');
+      return;
+    }
+    setMentorshipRequestSent(false);
+    setShowMentorshipModal(true);
+  };
+
+  const handleCategoryChange = (category: string) => {
+    setSelectedCategories(prev =>
+      prev.includes('all') || category === 'all'
+        ? [category]
+        : prev.includes(category)
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
+  };
+
+  const handleLevelChange = (level: string) => {
+    setSelectedLevels(prev =>
+      prev.includes('all') || level === 'all'
+        ? [level]
+        : prev.includes(level)
+        ? prev.filter(l => l !== level)
+        : [...prev, level]
+    );
+  };
+
+  const handleFeatureChange = (feature: string) => {
+    setSelectedFeatures(prev =>
+      prev.includes(feature)
+        ? prev.filter(f => f !== feature)
+        : [...prev, feature]
+    );
+  };
+
+  // Filtering and Sorting Logic
+  const filteredCourses = useMemo(() => {
+    let courses = [...mockCourses];
+
+    // Search
+    if (searchQuery) {
+      courses = courses.filter(c =>
+        c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.instructor.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Category Filter
+    if (!selectedCategories.includes('all')) {
+        courses = courses.filter(c => selectedCategories.includes(c.category));
+    }
+
+    // Level Filter
+    if (!selectedLevels.includes('all')) {
+        courses = courses.filter(c => selectedLevels.includes(c.level));
+    }
+
+    // Feature Filter
+    if (selectedFeatures.length > 0) {
+        courses = courses.filter(c => selectedFeatures.every(sf => c.features.includes(sf)));
+    }
+
+    // Sorting
+    switch (sortOrder) {
+      case 'Newest':
+        courses.sort((a, b) => (a.isNew === b.isNew ? 0 : a.isNew ? -1 : 1));
+        break;
+      case 'Highest Rated':
+        courses.sort((a, b) => b.rating - a.rating);
+        break;
+      case 'Price: Low to High':
+        courses.sort((a, b) => a.price - b.price);
+        break;
+      case 'Price: High to Low':
+        courses.sort((a, b) => b.price - a.price);
+        break;
+      case 'Most Popular':
+      default:
+        courses.sort((a, b) => b.students - a.students);
+        break;
+    }
+
+    return courses;
+  }, [searchQuery, sortOrder, selectedCategories, selectedLevels, selectedFeatures]);
+
   return (
-    <div className="min-h-screen pt-20 pb-12 px-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-playfair font-bold text-white mb-2">Masterclass</h1>
-          <p className="text-gray-300">Learn from industry experts and advance your career</p>
-        </div>
-
-
-        {/* Search and Filters */}
-        <div className="flex flex-col lg:flex-row gap-4 mb-8">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search masterclasses..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 glass-effect rounded-xl border border-white/20 text-white placeholder-gray-400 focus:ring-2 focus:ring-rose-400 focus:border-transparent transition-all"
-            />
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            <Filter className="text-gray-400 w-5 h-5" />
-            <select
-              value={activeFilter}
-              onChange={(e) => setActiveFilter(e.target.value)}
-              className="px-4 py-3 glass-effect rounded-xl border border-white/20 text-white bg-transparent focus:ring-2 focus:ring-rose-400 focus:border-transparent transition-all"
-            >
-              {categories.map((category) => (
-                <option key={category} value={category} className="bg-gray-800">
-                  {category.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Masterclasses Grid */}
-        <div className="grid lg:grid-cols-3 gap-8 mb-12">
-          {/* Main Content */}
-          <div className="lg:col-span-2">
-            <h2 className="text-2xl font-semibold text-white mb-6">Featured Masterclasses</h2>
-            <div className="grid md:grid-cols-2 gap-6">
-              {filteredMasterclasses.map((course) => (
-                <div key={course.id} className="glass-effect rounded-2xl overflow-hidden hover-lift">
-                  {/* Thumbnail */}
-                  <div className="relative aspect-video bg-gray-800">
-                    <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Play className="w-12 h-12 text-white" />
-                    </div>
-                    
-                    {course.isEnrolled && (
-                      <div className="absolute top-2 right-2 px-2 py-1 bg-green-500 text-white text-xs font-bold rounded-full">
-                        ENROLLED
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Content */}
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="px-2 py-1 bg-rose-400/20 text-rose-300 text-xs rounded-full">
-                        {course.level}
-                      </span>
-                      <div className="flex items-center space-x-1">
-                        <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                        <span className="text-gray-300 text-sm">{course.rating}</span>
-                      </div>
-                    </div>
-
-                    <h3 className="text-xl font-semibold text-white mb-2">{course.title}</h3>
-                    <p className="text-gray-200 text-sm mb-3">by {course.instructor}</p>
-                    <p className="text-gray-300 text-sm mb-4 line-clamp-2">{course.description}</p>
-
-                    {/* Course Stats */}
-                    <div className="flex items-center justify-between text-sm text-gray-200 mb-4">
-                      <div className="flex items-center space-x-1">
-                        <Clock className="w-4 h-4" />
-                        <span>{course.duration}</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <BookOpen className="w-4 h-4" />
-                        <span>{course.lessons} lessons</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <Users className="w-4 h-4" />
-                        <span>{course.students}</span>
-                      </div>
-                    </div>
-
-                    {/* Features */}
-                    <div className="flex flex-wrap gap-1 mb-4">
-                      {course.features.map((feature, index) => (
-                        <span key={index} className="px-2 py-1 bg-purple-400/20 text-purple-300 text-xs rounded">
-                          {feature}
-                        </span>
-                      ))}
-                      <Link
-                        to={`/career-guidance/${course.id}`}
-                        className="px-2 py-1 bg-blue-400/20 text-blue-300 text-xs rounded"
-                      >
-                        Career Guidance
-                      </Link>
-                    </div>
-
-                    {/* Progress Bar (if enrolled) */}
-                    {course.isEnrolled && (
-                      <div className="mb-4">
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="text-gray-300">Progress</span>
-                          <span className="text-gray-300">{course.progress}%</span>
-                        </div>
-                        <div className="w-full bg-gray-700 rounded-full h-2">
-                          <div 
-                            className="bg-gradient-to-r from-green-400 to-blue-500 h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${course.progress}%` }}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Action Button */}
-                    <div className="flex items-center justify-between">
-                      <div className="text-2xl font-bold text-white">UGX --</div>
-                      {course.isEnrolled ? (
-                        <button className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
-                          Continue Learning
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleEnroll(course.id)}
-                          className="px-6 py-2 bg-gradient-to-r from-rose-500 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all"
-                        >
-                          Enroll Now
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
+    <div className="bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900 min-h-screen">
+      <main className="pt-20 pb-12 px-4">
+        <div className="max-w-7xl mx-auto">
+          {/* Header Section */}
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-4xl font-playfair font-bold text-white mb-2">Masterclass</h1>
+              <p className="text-gray-300">Learn from industry experts and advance your career</p>
             </div>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* My Learning */}
-            <div className="glass-effect p-6 rounded-2xl">
-              <h3 className="text-xl font-semibold text-white mb-4">My Learning</h3>
-              <div className="space-y-3">
-                {masterclasses.filter(c => c.isEnrolled).map((course) => (
-                  <div key={course.id} className="flex items-center space-x-3 p-3 hover:bg-white/5 rounded-lg transition-colors">
-                    <img src={course.thumbnail} alt={course.title} className="w-12 h-12 rounded-lg object-cover" />
-                    <div className="flex-1">
-                      <div className="text-white text-sm font-medium line-clamp-1">{course.title}</div>
-                      <div className="text-gray-200 text-xs">{course.progress}% complete</div>
-                    </div>
-                  </div>
-                ))}
-                {masterclasses.filter(c => c.isEnrolled).length === 0 && (
-                  <p className="text-gray-200 text-sm">No enrolled courses yet</p>
-                )}
+            <div className="flex items-center space-x-4">
+              <div className="glass-effect px-4 py-2 rounded-xl flex items-center space-x-2">
+                <Trophy className="w-5 h-5 text-yellow-400" />
+                <span className="text-white">{user ? user.loyaltyPoints : 0} points</span>
+              </div>
+              <div className="glass-effect px-4 py-2 rounded-xl flex items-center space-x-2">
+                <Target className="w-5 h-5 text-green-400" />
+                <span className="text-white">7-day streak</span>
               </div>
             </div>
+          </div>
 
-            {/* Mentorship CTA */}
-            <div className="glass-effect p-6 rounded-2xl bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-400/30">
-              <div className="flex flex-col items-start justify-between">
-                <div>
-                  <h3 className="text-xl font-semibold text-white mb-2">Mentorship</h3>
-                  <p className="text-gray-300">Get personalized guidance from industry professionals.</p>
-                </div>
-                <button
-                  onClick={() => {
-                    if (!user) {
-                      alert('Please sign up or sign in to request mentorship.');
-                      navigate('/signin');
-                      return;
-                    }
-                    setShowMentorshipModal(true);
-                    setMentorshipRequestSent(false);
-                  }}
-                  className="mt-4 w-full px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-600 text-white font-semibold rounded-xl hover:shadow-xl transition-all"
-                >
-                  Apply
+          {/* Search and Controls Bar */}
+          <div className="flex flex-col lg:flex-row gap-4 mb-8">
+            <div className="flex-1 relative">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search masterclasses, instructors, or topics..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 glass-effect rounded-xl border border-white/20 text-white placeholder-gray-400 focus:ring-2 focus:ring-rose-400 focus:border-transparent transition-all"
+              />
+            </div>
+            <div className="flex items-center space-x-4">
+              <button onClick={() => setShowFilters(!showFilters)} className="flex items-center space-x-2 px-4 py-3 glass-effect rounded-xl border border-white/20 text-white hover:border-rose-400 transition-all">
+                <Filter className="w-5 h-5" />
+                <span>Filters</span>
+                <ChevronDown className={`w-5 h-5 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+              </button>
+              <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
+                className="px-4 py-3 glass-effect rounded-xl border border-white/20 text-white bg-gray-900 focus:ring-2 focus:ring-rose-400"
+              >
+                {['Most Popular', 'Newest', 'Highest Rated', 'Price: Low to High', 'Price: High to Low'].map(o => <option key={o} value={o} className="bg-gray-800">{o}</option>)}
+              </select>
+              <div className="flex items-center space-x-2 glass-effect rounded-xl p-1">
+                <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-rose-500 text-white' : 'text-gray-400 hover:text-white'}`}>
+                  <Grid className="w-5 h-5" />
+                </button>
+                <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-rose-500 text-white' : 'text-gray-400 hover:text-white'}`}>
+                  <List className="w-5 h-5" />
                 </button>
               </div>
             </div>
+          </div>
 
-            {/* Community Support CTA */}
-            <div className="glass-effect p-6 rounded-2xl bg-gradient-to-r from-blue-500/20 to-teal-500/20 border border-blue-400/30">
-                <div className="flex flex-col items-start justify-between">
+          {/* Advanced Filters Panel */}
+          {showFilters && (
+            <div className="glass-effect rounded-2xl p-6 mb-8 border border-white/20">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
-                    <h3 className="text-xl font-semibold text-white mb-2">Community Support</h3>
-                    <p className="text-gray-300">Have questions? Get help from our community of creators and experts.</p>
+                  <label className="block text-white font-medium mb-3">Category</label>
+                  <select onChange={(e) => handleCategoryChange(e.target.value)} value={selectedCategories[0]} className="w-full px-4 py-2 glass-effect rounded-lg border border-white/20 text-white bg-gray-900 focus:ring-2 focus:ring-rose-400">
+                    {categories.map(c => <option key={c} value={c} className="bg-gray-800">{formatCategoryName(c)}</option>)}
+                  </select>
                 </div>
-                <button
-                    className="mt-4 w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-teal-600 text-white font-semibold rounded-xl hover:shadow-xl transition-all"
-                >
-                    Ask the Community
-                </button>
+                <div>
+                  <label className="block text-white font-medium mb-3">Level</label>
+                  <select onChange={(e) => handleLevelChange(e.target.value)} value={selectedLevels[0]} className="w-full px-4 py-2 glass-effect rounded-lg border border-white/20 text-white bg-gray-900 focus:ring-2 focus:ring-rose-400">
+                    {['all', 'Beginner', 'Intermediate', 'Advanced', 'All Levels'].map(l => <option key={l} value={l} className="bg-gray-800">{l === 'all' ? 'All' : l}</option>)}
+                  </select>
                 </div>
-            </div>
-
-            {/* Upcoming Workshops */}
-            <div className="glass-effect p-6 rounded-2xl">
-              <h3 className="text-xl font-semibold text-white mb-4">Upcoming Workshops</h3>
-              <div className="space-y-4">
-                {workshops.map((workshop) => (
-                  <div key={workshop.id} className="border border-gray-700 rounded-lg p-4">
-                    <h4 className="text-white font-medium mb-2">{workshop.title}</h4>
-                    <div className="text-gray-200 text-sm space-y-1">
-                      <div>{workshop.date} at {workshop.time}</div>
-                      <div>{workshop.duration} • {workshop.spots} spots left</div>
-                      <div>by {workshop.instructor}</div>
-                    </div>
-                    <div className="flex items-center justify-between mt-3">
-                      <span className="text-rose-400 font-bold">UGX --</span>
-                      <button className="px-4 py-2 bg-gradient-to-r from-rose-500 to-purple-600 text-white text-sm rounded-lg hover:shadow-lg transition-all">
-                        Register
+                <div>
+                  <label className="block text-white font-medium mb-3">Features</label>
+                  <div className="flex flex-wrap gap-2">
+                    {['Live Sessions', 'Projects', 'Certification', 'Industry Connections', 'Portfolio Building'].map(f => (
+                      <button key={f} onClick={() => handleFeatureChange(f)} className={`px-3 py-1 rounded-full text-sm transition-all ${selectedFeatures.includes(f) ? 'bg-rose-500 text-white' : 'bg-white/10 text-gray-300 hover:bg-white/20'}`}>
+                        {f}
                       </button>
-                    </div>
+                    ))}
                   </div>
-                ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Main Content Grid */}
+          <div className="grid lg:grid-cols-4 gap-8">
+            <div className="lg:col-span-3">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-semibold text-white">
+                  {filteredCourses.length} Masterclasses
+                </h2>
+                <p className="text-gray-400 text-sm">
+                  Showing {filteredCourses.length} of {mockCourses.length} courses
+                </p>
+              </div>
+              <div className={`grid gap-6 ${viewMode === 'grid' ? 'md:grid-cols-2' : 'grid-cols-1'}`}>
+                {filteredCourses.map(course => <CourseCard key={course.id} course={course} viewMode={viewMode} />)}
               </div>
             </div>
 
-            {/* Achievements */}
-            <div className="glass-effect p-6 rounded-2xl">
-              <h3 className="text-xl font-semibold text-white mb-4">My Achievements</h3>
-              <div className="space-y-3">
-                <div className="flex items-center space-x-3">
-                  <Award className="w-8 h-8 text-yellow-400" />
-                  <div>
-                    <div className="text-white font-medium">Brand Ambassador Certified</div>
-                    <div className="text-gray-200 text-sm">Completed November 2025</div>
+            {/* Sidebar */}
+            <aside className="space-y-6 lg:col-span-1">
+              {user && (
+                <div className="glass-effect p-6 rounded-2xl">
+                  <h3 className="text-xl font-semibold text-white mb-4 flex items-center"><TrendingUp className="w-6 h-6 mr-2 text-green-400" />My Learning</h3>
+                  <div className="space-y-4">
+                    {mockCourses.filter(c => c.isEnrolled).slice(0, 3).map(course => (
+                      <Link to={`/learn/${course.id}`} key={course.id} className="flex items-center space-x-3 p-3 -m-3 hover:bg-white/5 rounded-lg transition-colors cursor-pointer">
+                        <img src={course.thumbnail} alt={course.title} className="w-12 h-12 rounded-lg object-cover" />
+                        <div className="flex-1">
+                          <p className="text-white font-medium line-clamp-1">{course.title}</p>
+                          <p className="text-xs text-gray-400">{course.progress}% complete</p>
+                          <div className="w-full bg-gray-700 rounded-full h-1 mt-1"><div className="bg-green-500 h-1 rounded-full" style={{ width: `${course.progress}%` }}></div></div>
+                        </div>
+                      </Link>
+                    ))}
                   </div>
                 </div>
-                <div className="flex items-center space-x-3">
-                  <CheckCircle className="w-8 h-8 text-green-400" />
-                  <div>
-                    <div className="text-white font-medium">First Course Completed</div>
-                    <div className="text-gray-400 text-sm">Achievement unlocked</div>
-                  </div>
+              )}
+               <div className="glass-effect p-6 rounded-2xl">
+                <h3 className="text-xl font-semibold text-white mb-4 flex items-center"><Video className="w-6 h-6 mr-2 text-rose-400" />Live Workshops</h3>
+                <div className="space-y-4">
+                  {mockWorkshops.map(ws => (
+                    <div key={ws.id} className="border border-gray-700 rounded-lg p-4 hover:border-rose-400 transition-colors">
+                      <div className="w-full aspect-video bg-gray-800 rounded-md mb-3" style={{backgroundImage: `url(${ws.thumbnail})`, backgroundSize: 'cover'}}></div>
+                      <h4 className="font-semibold text-white mb-2">{ws.title}</h4>
+                      {ws.isLive && (
+                        <div className="flex items-center space-x-2 mb-2">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                          </span>
+                          <span className="text-red-400 text-xs font-bold">LIVE NOW</span>
+                        </div>
+                      )}
+                      <p className="text-sm text-gray-300">{ws.date} @ {ws.time}</p>
+                      <div className="flex justify-between items-center mt-3">
+                        <p className="text-sm text-gray-300">{ws.spotsLeft > 0 ? `${ws.spotsLeft} spots left` : 'Full'}</p>
+                        <button className="px-3 py-1 bg-rose-500 text-white text-sm rounded-md hover:bg-rose-600 transition-colors">Register</button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
+
+              <div className="glass-effect p-6 rounded-2xl bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-400/30">
+                <Award className="w-8 h-8 text-purple-300 mb-3" />
+                <h3 className="text-lg font-semibold text-white mb-2">Mentorship Program</h3>
+                <p className="text-gray-300 text-sm mb-4">Get 1-on-1 guidance from industry veterans.</p>
+                <button onClick={openMentorshipModal} className="w-full py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors">Apply for Mentorship</button>
+              </div>
+
+              <div className="glass-effect p-6 rounded-2xl bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-400/30">
+                <MessageCircle className="w-8 h-8 text-blue-300 mb-3" />
+                <h3 className="text-lg font-semibold text-white mb-2">Join the Community</h3>
+                <p className="text-gray-300 text-sm mb-4">Connect with peers, share your work, and get feedback.</p>
+                <button className="w-full py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors">Join Community</button>
+              </div>
+
+              {user && (
+                <div className="glass-effect p-6 rounded-2xl">
+                  <h3 className="text-xl font-semibold text-white mb-4 flex items-center"><Trophy className="w-6 h-6 mr-2 text-yellow-400" />Achievements</h3>
+                  <div className="space-y-4">
+                    {mockAchievements.map(ach => (
+                       <div key={ach.id} className="flex items-center space-x-4 p-3 -m-3 bg-white/5 rounded-lg">
+                         <ach.icon className={`w-8 h-8 ${ach.color}`} />
+                         <div>
+                           <p className="font-semibold text-white">{ach.title}</p>
+                           <p className="text-sm text-gray-400">{ach.description}</p>
+                         </div>
+                       </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </aside>
           </div>
         </div>
-      </div>
+      </main>
+
       {/* Mentorship Modal */}
       {showMentorshipModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="glass-effect p-6 rounded-2xl max-w-md w-full">
-              {!mentorshipRequestSent ? (
-              <>
-                  <h3 className="text-xl font-semibold text-white mb-4">Request Mentorship</h3>
-                  <p className="text-gray-300 mb-4">
-                  Fill out the form below to request a mentorship session.
-                  </p>
-                  <form
-              onSubmit={handleMentorshipRequest}
-                  >
-                  <div className="space-y-4">
-                      <textarea
-                      className="w-full h-24 bg-transparent border border-gray-600 rounded-lg p-3 text-white resize-none focus:border-rose-400 outline-none"
-                      placeholder="What do you need help with?"
-                      required
-                      ></textarea>
-                      <button
-                      type="submit"
-                      className="w-full py-3 bg-gradient-to-r from-rose-500 to-purple-600 text-white font-semibold rounded-xl hover:shadow-xl transition-all"
-                      >
-                      Submit Request
-                      </button>
-                  </div>
-                  </form>
-              </>
-              ) : (
-              <div>
-                  <h3 className="text-xl font-semibold text-white mb-4">Request Sent!</h3>
-                  <p className="text-gray-300 mb-4">
-                  Your mentorship request has been received for review. We will notify you once it's approved.
-                  </p>
-                  <p className="text-yellow-400 text-sm mb-4">
-                  Please note: Mentorship is a premium feature.
-                  </p>
-                  <div className="flex space-x-3">
-                  <button
-                      onClick={() => setShowMentorshipModal(false)}
-                      className="flex-1 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                  >
-                      Close
-                  </button>
-                  <button
-                      className="flex-1 py-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-semibold rounded-xl hover:shadow-xl transition-all"
-                  >
-                      Upgrade to Premium
-                  </button>
-                  </div>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 transition-opacity duration-300">
+          <div className="glass-effect p-8 rounded-2xl max-w-md w-full border border-white/20 transform transition-all duration-300 scale-95 opacity-0 animate-fade-in-scale">
+            <button onClick={() => setShowMentorshipModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white">&times;</button>
+            {!mentorshipRequestSent ? (
+              <form onSubmit={handleMentorshipSubmit}>
+                <h3 className="text-2xl font-bold text-white mb-2">Request Mentorship</h3>
+                <p className="text-gray-300 mb-6">Let us know what you're looking for.</p>
+                <div className="space-y-4">
+                  <select className="w-full px-4 py-2 glass-effect rounded-lg border border-white/20 text-white bg-gray-900 focus:ring-2 focus:ring-rose-400">
+                    <option className="bg-gray-800">Career Advice</option>
+                    <option className="bg-gray-800">Portfolio Review</option>
+                    <option className="bg-gray-800">Technical Skills</option>
+                    <option className="bg-gray-800">Business Strategy</option>
+                  </select>
+                  <textarea
+                    className="w-full h-32 bg-transparent border border-gray-600 rounded-lg p-3 text-white resize-none focus:border-rose-400 outline-none"
+                    placeholder="Tell us more about your goals..."
+                    required
+                  ></textarea>
+                </div>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full mt-6 py-3 bg-gradient-to-r from-rose-500 to-purple-600 text-white font-semibold rounded-xl hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? 'Submitting...' : 'Submit Request'}
+                </button>
+              </form>
+            ) : (
+              <div className="text-center">
+                <CheckCircle className="w-16 h-16 text-green-400 mx-auto mb-4" />
+                <h3 className="text-2xl font-bold text-white mb-2">Request Sent!</h3>
+                <p className="text-gray-300 mb-6">We've received your request and will get back to you within 48 hours. Please note that mentorship is a premium feature.</p>
+                <button onClick={() => setShowMentorshipModal(false)} className="px-6 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors">
+                  Got it
+                </button>
               </div>
-              )}
+            )}
           </div>
-          </div>
+        </div>
       )}
     </div>
   );
