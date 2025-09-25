@@ -33,6 +33,7 @@ const CourseLearn = () => {
   const [showQuiz, setShowQuiz] = useState(false);
   const [quizAnswers, setQuizAnswers] = useState<{ [key: number]: number }>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
+  const [quizScore, setQuizScore] = useState(0);
 
   // Video Player State
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -141,6 +142,32 @@ const CourseLearn = () => {
   };
 
   // Quiz Handlers
+  const quizQuestions = [
+      { id: 1, question: "What does SEO stand for?", options: ["Search Engine Optimization", "Social Engine Optimization"], correctAnswer: 0 },
+      { id: 2, question: "Which is an example of an on-page SEO factor?", options: ["Backlinks", "Meta Title"], correctAnswer: 1 }
+  ];
+
+  const handleQuizAnswer = (questionId: number, answerIndex: number) => {
+    setQuizAnswers(prev => ({...prev, [questionId]: answerIndex}));
+  };
+
+  const submitQuiz = () => {
+    let score = 0;
+    quizQuestions.forEach(q => {
+        if(quizAnswers[q.id] === q.correctAnswer) {
+            score++;
+        }
+    });
+    setQuizScore(score);
+    setQuizSubmitted(true);
+  };
+
+  const retakeQuiz = () => {
+      setQuizAnswers({});
+      setQuizSubmitted(false);
+      setQuizScore(0);
+  };
+
   useEffect(() => {
     setShowQuiz(currentLesson?.type === 'quiz');
     setQuizSubmitted(false);
@@ -179,34 +206,47 @@ const CourseLearn = () => {
         <main className="flex-1 flex flex-col bg-black">
           {/* Video Player or Quiz */}
           {showQuiz ? (
-             <div className="min-h-[60vh] bg-gray-800 p-8 flex-1 flex items-center justify-center">
-                <div className="max-w-3xl w-full">
+            <div className="min-h-[60vh] bg-gray-800 p-8 flex-1 flex items-center justify-center">
+              <div className="max-w-3xl w-full">
+                {!quizSubmitted ? (
+                  <>
                     <div className="text-center mb-8">
-                        <h2 className="text-2xl font-bold text-white mb-2">Module 2 Quiz</h2>
-                        <p className="text-gray-400">Test your knowledge on SEO.</p>
+                      <h2 className="text-2xl font-bold text-white mb-2">Module 2 Quiz</h2>
+                      <p className="text-gray-400">Test your knowledge on SEO.</p>
                     </div>
                     <div className="space-y-8">
-                        {/* Question 1 */}
-                        <div className="glass-effect rounded-xl p-6">
-                            <p className="text-lg font-semibold text-white mb-4">1. What does SEO stand for?</p>
-                            <div className="space-y-3">
-                                <label className="flex items-center space-x-3 cursor-pointer"><input type="radio" name="q1" className="w-4 h-4 text-rose-500" /><span>Search Engine Optimization</span></label>
-                                <label className="flex items-center space-x-3 cursor-pointer"><input type="radio" name="q1" className="w-4 h-4 text-rose-500" /><span>Social Engine Optimization</span></label>
-                            </div>
+                      {quizQuestions.map((q, index) => (
+                        <div key={q.id} className="glass-effect rounded-xl p-6">
+                          <p className="text-lg font-semibold text-white mb-4">{index + 1}. {q.question}</p>
+                          <div className="space-y-3">
+                            {q.options.map((option, i) => (
+                              <label key={i} className="flex items-center space-x-3 cursor-pointer">
+                                <input type="radio" name={`q${q.id}`} onChange={() => handleQuizAnswer(q.id, i)} className="w-4 h-4 text-rose-500 bg-gray-700 border-gray-600 focus:ring-rose-500"/>
+                                <span className="text-gray-300">{option}</span>
+                              </label>
+                            ))}
+                          </div>
                         </div>
-                         {/* Question 2 */}
-                        <div className="glass-effect rounded-xl p-6">
-                            <p className="text-lg font-semibold text-white mb-4">2. Which is an example of an on-page SEO factor?</p>
-                            <div className="space-y-3">
-                                <label className="flex items-center space-x-3 cursor-pointer"><input type="radio" name="q2" className="w-4 h-4 text-rose-500" /><span>Backlinks</span></label>
-                                <label className="flex items-center space-x-3 cursor-pointer"><input type="radio" name="q2" className="w-4 h-4 text-rose-500" /><span>Meta Title</span></label>
-                            </div>
-                        </div>
+                      ))}
                     </div>
                     <div className="text-center mt-8">
-                        <button className="px-8 py-3 bg-gradient-to-r from-rose-500 to-purple-600 text-white font-semibold rounded-xl hover:shadow-lg transition-all">Submit Answers</button>
+                      <button onClick={submitQuiz} disabled={Object.keys(quizAnswers).length !== quizQuestions.length} className="px-8 py-3 bg-gradient-to-r from-rose-500 to-purple-600 text-white font-semibold rounded-xl hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                        Submit Answers
+                      </button>
                     </div>
-                </div>
+                  </>
+                ) : (
+                  <div className="text-center">
+                    {quizScore / quizQuestions.length >= 0.8 ? <CheckCircle className="w-20 h-20 text-green-400 mx-auto mb-4" /> : <XCircle className="w-20 h-20 text-red-400 mx-auto mb-4" />}
+                    <h2 className="text-3xl font-bold text-white mb-2">You scored {quizScore} out of {quizQuestions.length}</h2>
+                    <p className="text-gray-300 text-lg mb-8">{quizScore / quizQuestions.length >= 0.8 ? "Excellent work! You've mastered the concepts." : "Good effort! Review the lessons and try again."}</p>
+                    <div className="flex justify-center space-x-4">
+                      <button onClick={retakeQuiz} className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">Retake Quiz</button>
+                      <button className="px-6 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors">Next Lesson</button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <div className="flex-1 relative bg-black" onMouseMove={handleMouseMove}>
@@ -355,11 +395,14 @@ const CourseLearn = () => {
               </div>
             )}
             {sidebarTab === 'discussion' && (
-              <div className="text-center py-8">
-                  <MessageCircle className="w-12 h-12 text-gray-500 mx-auto mb-4"/>
-                  <h4 className="text-lg font-semibold text-white">Discussion</h4>
-                  <p className="text-gray-400">Coming soon.</p>
-              </div>
+               <div className="p-4 text-center">
+                    <MessageCircle className="w-12 h-12 text-gray-500 mx-auto mb-4"/>
+                    <h4 className="text-lg font-semibold text-white">Join the Conversation</h4>
+                    <p className="text-gray-400 text-sm mb-4">Share your thoughts, ask questions, and connect with other learners in this course.</p>
+                    <button className="w-full py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors">
+                        Go to Discussion Board
+                    </button>
+                </div>
             )}
           </div>
         </aside>
