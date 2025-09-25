@@ -23,23 +23,8 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import './App.css';
 
-const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
-  const { user, loading } = useAuth();
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
-      </div>
-    );
-  }
-  if (!user) {
-    return <Navigate to="/signin" replace />;
-  }
-  return children;
-};
-
-
-function AppContent() {
+// A component to render the main layout and routes
+function AppRoutes() {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -52,40 +37,51 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-gray-900">
-      <Router>
-        <Navbar />
-        <Routes>
-          <Route path="/" element={user ? <Navigate to="/dashboard" /> : <LandingPage />} />
-          <Route path="/signin" element={user ? <Navigate to="/dashboard" /> : <SignIn />} />
-          <Route path="/signup" element={user ? <Navigate to="/dashboard" /> : <SignUp />} />
-          <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/" />} />
-          <Route path="/portfolio" element={user ? <Portfolio /> : <Navigate to="/" />} />
-          <Route path="/media" element={<Media />} />
-          <Route path="/masterclass" element={<Masterclass />} />
-          <Route path="/course/:id" element={<CourseDetail />} />
-          <Route path="/learn/:id" element={<ProtectedRoute><CourseLearn /></ProtectedRoute>} />
-          <Route path="/projects" element={<Projects />} />
-          <Route path="/events" element={<Events />} />
-          <Route path="/profile" element={user ? <Profile /> : <Navigate to="/" />} />
-          <Route path="/creator-membership" element={user ? <CreatorMembership /> : <Navigate to="/" />} />
-          <Route path="/member-membership" element={user ? <MemberMembership /> : <Navigate to="/" />} />
-          <Route path="/content" element={user ? <Content /> : <Navigate to="/" />} />
-          <Route path="/account" element={user ? <Account /> : <Navigate to="/" />} />
-          <Route path="/connect" element={user ? <Connect /> : <Navigate to="/" />} />
-          <Route path="/career-guidance/:masterclassId" element={user ? <CareerGuidance /> : <Navigate to="/" />} />
-        </Routes>
-      </Router>
+      <Navbar />
+      <Routes>
+        <Route path="/" element={user ? <Navigate to="/dashboard" /> : <LandingPage />} />
+        <Route path="/signin" element={user ? <Navigate to="/dashboard" /> : <SignIn />} />
+        <Route path="/signup" element={user ? <Navigate to="/dashboard" /> : <SignUp />} />
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/portfolio" element={<ProtectedRoute><Portfolio /></ProtectedRoute>} />
+        <Route path="/media" element={<Media />} />
+        <Route path="/masterclass" element={<Masterclass />} />
+        <Route path="/course/:id" element={<CourseDetail />} />
+        <Route path="/learn/:id" element={<ProtectedRoute><CourseLearn /></ProtectedRoute>} />
+        <Route path="/projects" element={<Projects />} />
+        <Route path="/events" element={<Events />} />
+        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        <Route path="/creator-membership" element={<ProtectedRoute><CreatorMembership /></ProtectedRoute>} />
+        <Route path="/member-membership" element={<ProtectedRoute><MemberMembership /></ProtectedRoute>} />
+        <Route path="/content" element={<ProtectedRoute><Content /></ProtectedRoute>} />
+        <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
+        <Route path="/connect" element={<ProtectedRoute><Connect /></ProtectedRoute>} />
+        <Route path="/career-guidance/:masterclassId" element={<ProtectedRoute><CareerGuidance /></ProtectedRoute>} />
+      </Routes>
     </div>
   );
 }
 
+// A component to protect routes that require authentication
+const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
+  const { user } = useAuth();
+  // We can add a loading check here if needed, but AppRoutes already has one.
+  if (!user) {
+    return <Navigate to="/signin" replace />;
+  }
+  return children;
+};
+
+// The main App component that sets up providers and routing
 function App() {
   return (
-    <AuthProvider>
-      <ToastProvider>
-        <AppContent />
-      </ToastProvider>
-    </AuthProvider>
+    <Router>
+      <AuthProvider>
+        <ToastProvider>
+          <AppRoutes />
+        </ToastProvider>
+      </AuthProvider>
+    </Router>
   );
 }
 
