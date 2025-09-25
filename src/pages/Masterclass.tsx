@@ -5,8 +5,10 @@ import {
   MessageCircle, Play, Search, Star, Target, TrendingUp, Trophy, Users, Video
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { mockCourses, mockWorkshops, mockAchievements, categories } from '../data/mock-data';
 import { Course } from '../types';
+import CourseCardSkeleton from '../components/masterclass/CourseCardSkeleton';
 
 // Utility to format category names for display
 const formatCategoryName = (category: string) => {
@@ -19,11 +21,18 @@ const formatCategoryName = (category: string) => {
 // A new Course Card component to be used in the grid
 const CourseCard: React.FC<{ course: Course, viewMode: 'grid' | 'list' }> = ({ course, viewMode }) => {
   const [isBookmarked, setIsBookmarked] = useState(course.isBookmarked);
+  const { addToast } = useToast();
 
   const toggleBookmark = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsBookmarked(!isBookmarked);
+    const newBookmarkState = !isBookmarked;
+    setIsBookmarked(newBookmarkState);
+    if (newBookmarkState) {
+      addToast('Course bookmarked!', 'success');
+    } else {
+      addToast('Bookmark removed.', 'info');
+    }
   };
 
   const cardClasses = "glass-effect rounded-2xl overflow-hidden hover-lift group transition-all duration-300 flex";
@@ -125,9 +134,11 @@ export default function Masterclass() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>(['all']);
   const [selectedLevels, setSelectedLevels] = useState<string[]>(['all']);
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [showMentorshipModal, setShowMentorshipModal] = useState(false);
   const [mentorshipRequestSent, setMentorshipRequestSent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { addToast } = useToast();
 
   const handleMentorshipSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,6 +147,7 @@ export default function Masterclass() {
     await new Promise(res => setTimeout(res, 1500));
     setIsSubmitting(false);
     setMentorshipRequestSent(true);
+    addToast('Mentorship request submitted!', 'success');
   };
 
   const openMentorshipModal = () => {
@@ -175,8 +187,16 @@ export default function Masterclass() {
     );
   };
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1500); // Simulate network delay
+    return () => clearTimeout(timer);
+  }, []);
+
   // Filtering and Sorting Logic
   const filteredCourses = useMemo(() => {
+    if (isLoading) return [];
     let courses = [...mockCourses];
 
     // Search
@@ -325,7 +345,21 @@ export default function Masterclass() {
                 </p>
               </div>
               <div className={`grid gap-6 ${viewMode === 'grid' ? 'md:grid-cols-2' : 'grid-cols-1'}`}>
-                {filteredCourses.map(course => <CourseCard key={course.id} course={course} viewMode={viewMode} />)}
+                {isLoading
+                  ? Array.from({ length: 4 }).map((_, i) => <CourseCardSkeleton key={i} viewMode={viewMode} />)
+                  : filteredCourses.length > 0
+                    ? filteredCourses.map(course => <CourseCard key={course.id} course={course} viewMode={viewMode} />)
+                    : (
+                      <div className="lg:col-span-2 text-center py-16">
+                        <Search className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+                        <h3 className="text-xl font-semibold text-white">No Masterclasses Found</h3>
+                        <p className="text-gray-400 mt-2">Try adjusting your search or filter criteria.</p>
+                        <button onClick={() => { setSearchQuery(''); setSelectedCategories(['all']); setSelectedLevels(['all']); setSelectedFeatures([]); }} className="mt-4 px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors">
+                          Clear Filters
+                        </button>
+                      </div>
+                    )
+                }
               </div>
             </div>
 

@@ -20,6 +20,7 @@ import CareerGuidance from './pages/CareerGuidance';
 import CourseDetail from './pages/CourseDetail';
 import CourseLearn from './pages/CourseLearn';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
 import './App.css';
 
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
@@ -81,7 +82,9 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <ToastProvider>
+        <AppContent />
+      </ToastProvider>
     </AuthProvider>
   );
 }
